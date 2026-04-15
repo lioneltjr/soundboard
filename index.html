@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SoundDeck</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0c0c0e;
+    --surface: #18181c;
+    --surface-hover: #222228;
+    --surface-active: #2a2a32;
+    --border: #2a2a32;
+    --text: #e8e8ec;
+    --text-dim: #6e6e7a;
+    --accent-1: #6c5ce7;
+    --accent-2: #00cec9;
+    --accent-3: #fd79a8;
+    --accent-4: #fdcb6e;
+    --accent-5: #e17055;
+    --accent-6: #55efc4;
+    --accent-7: #74b9ff;
+    --accent-8: #a29bfe;
+    --radius: 12px;
+    --glow-spread: 20px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  /* Top bar */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    flex-shrink: 0;
+  }
+
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo {
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .page-tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--surface);
+    border-radius: 8px;
+    padding: 2px;
+  }
+
+  .page-tab {
+    padding: 4px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+    border: none;
+    background: none;
+    font-family: inherit;
+  }
+
+  .page-tab.active {
+    background: var(--accent-1);
+    color: white;
+  }
+
+  .page-tab:hover:not(.active) {
+    color: var(--text);
+    background: var(--surface-hover);
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .output-select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 4px 10px;
+    border-radius: 6px;
+    outline: none;
+    max-width: 200px;
+  }
+
+  .output-select:focus { border-color: var(--accent-1); }
+
+  .vol-slider {
+    -webkit-appearance: none;
+    width: 80px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    outline: none;
+  }
+
+  .vol-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent-2);
+    cursor: pointer;
+  }
+
+  .btn-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    font-size: 14px;
+  }
+
+  .btn-icon:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+    border-color: var(--accent-1);
+  }
+
+  /* Grid */
+  .grid-wrap {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+    padding: 4px;
+  }
+
+  /* Pad button */
+  .pad {
+    aspect-ratio: 1;
+    border-radius: var(--radius);
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px;
+    position: relative;
+    transition: all 0.12s ease;
+    overflow: hidden;
+  }
+
+  .pad::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .pad:hover {
+    border-color: var(--pad-color, var(--accent-1));
+    transform: scale(1.03);
+  }
+
+  .pad:hover::before {
+    opacity: 0.08;
+    background: var(--pad-color, var(--accent-1));
+  }
+
+  .pad:active {
+    transform: scale(0.95);
+  }
+
+  .pad.playing {
+    border-color: var(--pad-color, var(--accent-1));
+    box-shadow: 0 0 var(--glow-spread) color-mix(in srgb, var(--pad-color, var(--accent-1)) 35%, transparent);
+  }
+
+  .pad.playing::before {
+    opacity: 0.15;
+    background: var(--pad-color, var(--accent-1));
+  }
+
+  .pad.empty {
+    border-style: dashed;
+    border-color: var(--border);
+  }
+
+  .pad.empty:hover {
+    border-color: var(--text-dim);
+  }
+
+  .pad-icon {
+    font-size: 28px;
+    line-height: 1;
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--pad-color, var(--accent-1)) 40%, transparent));
+  }
+
+  .pad-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text);
+    text-align: center;
+    line-height: 1.2;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pad-empty-icon {
+    font-size: 22px;
+    color: var(--text-dim);
+    opacity: 0.4;
+  }
+
+  .pad-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: var(--pad-color, var(--accent-1));
+    border-radius: 0 0 var(--radius) var(--radius);
+    transition: width 0.1s linear;
+  }
+
+  /* Context menu */
+  .ctx-menu {
+    position: fixed;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+    z-index: 100;
+    min-width: 160px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    animation: ctxIn 0.12s ease;
+  }
+
+  @keyframes ctxIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 7px;
+    font-size: 13px;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: var(--text);
+    width: 100%;
+    font-family: inherit;
+    text-align: left;
+  }
+
+  .ctx-item:hover {
+    background: var(--surface-hover);
+  }
+
+  .ctx-item.danger { color: var(--accent-5); }
+
+  .ctx-sep {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 8px;
+  }
+
+  /* Modal */
+  .modal-bg {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.15s ease;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    min-width: 340px;
+    max-width: 420px;
+    animation: modalIn 0.2s ease;
+  }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .modal h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+
+  .modal label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    margin-top: 12px;
+  }
+
+  .modal input[type="text"] {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+  }
+
+  .modal input[type="text"]:focus {
+    border-color: var(--accent-1);
+  }
+
+  .icon-picker {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  .icon-opt {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: var(--bg);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.12s;
+  }
+
+  .icon-opt:hover { border-color: var(--text-dim); }
+  .icon-opt.active { border-color: var(--accent-1); background: var(--surface-hover); }
+
+  .color-picker {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  .color-opt {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2.5px solid transparent;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+
+  .color-opt:hover { transform: scale(1.15); }
+  .color-opt.active { border-color: white; box-shadow: 0 0 8px rgba(255,255,255,0.3); }
+
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 20px;
+  }
+
+  .btn {
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    transition: all 0.12s;
+  }
+
+  .btn-primary {
+    background: var(--accent-1);
+    color: white;
+  }
+
+  .btn-primary:hover { filter: brightness(1.15); }
+
+  .btn-secondary {
+    background: var(--surface-hover);
+    color: var(--text);
+  }
+
+  .btn-secondary:hover { background: var(--surface-active); }
+
+  .file-drop {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-top: 4px;
+  }
+
+  .file-drop:hover, .file-drop.dragover {
+    border-color: var(--accent-1);
+    color: var(--text);
+    background: rgba(108, 92, 231, 0.05);
+  }
+
+  .file-drop .filename {
+    color: var(--accent-2);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  /* Scrollbar */
+  .grid-wrap::-webkit-scrollbar { width: 4px; }
+  .grid-wrap::-webkit-scrollbar-track { background: transparent; }
+  .grid-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Stop all btn */
+  .stop-all {
+    background: var(--accent-5);
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.12s;
+  }
+
+  .stop-all:hover { filter: brightness(1.15); }
+
+  .help-text {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<div class="app" id="app"></div>
+
+<script>
+const ICONS = ['🔊','🎵','🎶','🎤','🎸','🥁','🎹','🎺','🔔','💥','👏','😂','🚨','✨','🐍','🤖','👾','🎮','⚡','🔥','💀','🎉','😱','🤣','💩','🐸','🦆','📢','🛎️','🌊'];
+const COLORS = ['#6c5ce7','#00cec9','#fd79a8','#fdcb6e','#e17055','#55efc4','#74b9ff','#a29bfe','#ff7675','#fab1a0','#81ecec','#dfe6e9'];
+
+const MAX_PAGES = 5;
+const PADS_PER_PAGE = 24;
+
+let state = {
+  pages: [{ name: 'Page 1', pads: Array(PADS_PER_PAGE).fill(null) }],
+  activePage: 0,
+  volume: 0.8,
+  playing: {},
+  ctxMenu: null,
+  editModal: null,
+  outputDeviceId: '',
+  devices: [],
+};
+
+// Load from localStorage
+try {
+  const saved = localStorage.getItem('sounddeck_state');
+  if (saved) {
+    const s = JSON.parse(saved);
+    state.pages = s.pages || state.pages;
+    state.volume = s.volume ?? 0.8;
+    state.outputDeviceId = s.outputDeviceId || '';
+  }
+} catch(e) {}
+
+function saveState() {
+  const toSave = {
+    pages: state.pages.map(p => ({
+      name: p.name,
+      pads: p.pads.map(pad => pad ? { label: pad.label, icon: pad.icon, color: pad.color, fileName: pad.fileName } : null)
+    })),
+    volume: state.volume,
+    outputDeviceId: state.outputDeviceId,
+  };
+  // Note: audio blobs won't survive refresh—this saves config only
+  localStorage.setItem('sounddeck_state', JSON.stringify(toSave));
+}
+
+// Audio context for output routing
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let audioDestination = null;
+
+async function loadDevices() {
+  try {
+    await navigator.mediaDevices.getUserMedia({ audio: true });
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    state.devices = devices.filter(d => d.kind === 'audiooutput');
+  } catch(e) {
+    state.devices = [];
+  }
+}
+
+function playSound(padIndex) {
+  const page = state.pages[state.activePage];
+  const pad = page.pads[padIndex];
+  if (!pad || !pad.audioData) return;
+
+  // Stop existing instance
+  if (state.playing[padIndex]) {
+    state.playing[padIndex].pause();
+    state.playing[padIndex] = null;
+  }
+
+  const audio = new Audio();
+  audio.src = pad.audioData;
+  audio.volume = state.volume;
+
+  if (state.outputDeviceId && audio.setSinkId) {
+    audio.setSinkId(state.outputDeviceId).catch(() => {});
+  }
+
+  audio.play().catch(() => {});
+  state.playing[padIndex] = audio;
+
+  audio.addEventListener('ended', () => {
+    delete state.playing[padIndex];
+    render();
+  });
+
+  render();
+}
+
+function stopAll() {
+  Object.keys(state.playing).forEach(k => {
+    if (state.playing[k]) {
+      state.playing[k].pause();
+      state.playing[k].currentTime = 0;
+    }
+  });
+  state.playing = {};
+  render();
+}
+
+function openFileDialog(padIndex) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'audio/*';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const page = state.pages[state.activePage];
+      const colorIdx = padIndex % COLORS.length;
+      const iconIdx = padIndex % ICONS.length;
+      page.pads[padIndex] = {
+        label: file.name.replace(/\.[^.]+$/, '').substring(0, 20),
+        icon: ICONS[iconIdx],
+        color: COLORS[colorIdx],
+        audioData: reader.result,
+        fileName: file.name,
+      };
+      saveState();
+      render();
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+function showCtx(e, padIndex) {
+  e.preventDefault();
+  e.stopPropagation();
+  state.ctxMenu = { x: e.clientX || e.touches?.[0]?.clientX || 100, y: e.clientY || e.touches?.[0]?.clientY || 100, padIndex };
+  render();
+}
+
+function closeCtx() {
+  state.ctxMenu = null;
+  render();
+}
+
+function openEditModal(padIndex) {
+  const page = state.pages[state.activePage];
+  const pad = page.pads[padIndex];
+  state.editModal = {
+    padIndex,
+    label: pad ? pad.label : '',
+    icon: pad ? pad.icon : ICONS[0],
+    color: pad ? pad.color : COLORS[0],
+    audioData: pad ? pad.audioData : null,
+    fileName: pad ? pad.fileName : null,
+  };
+  state.ctxMenu = null;
+  render();
+}
+
+function deletePad(padIndex) {
+  const page = state.pages[state.activePage];
+  if (state.playing[padIndex]) {
+    state.playing[padIndex].pause();
+    delete state.playing[padIndex];
+  }
+  page.pads[padIndex] = null;
+  state.ctxMenu = null;
+  saveState();
+  render();
+}
+
+function saveEditModal() {
+  const m = state.editModal;
+  if (!m) return;
+  const page = state.pages[state.activePage];
+  if (!page.pads[m.padIndex]) page.pads[m.padIndex] = {};
+  const pad = page.pads[m.padIndex];
+  pad.label = m.label;
+  pad.icon = m.icon;
+  pad.color = m.color;
+  if (m.audioData) pad.audioData = m.audioData;
+  if (m.fileName) pad.fileName = m.fileName;
+  state.editModal = null;
+  saveState();
+  render();
+}
+
+function addPage() {
+  if (state.pages.length >= MAX_PAGES) return;
+  state.pages.push({ name: `Page ${state.pages.length + 1}`, pads: Array(PADS_PER_PAGE).fill(null) });
+  state.activePage = state.pages.length - 1;
+  saveState();
+  render();
+}
+
+let longPressTimer = null;
+
+function render() {
+  const page = state.pages[state.activePage];
+  const app = document.getElementById('app');
+
+  app.innerHTML = `
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="logo">SoundDeck</div>
+        <div class="page-tabs">
+          ${state.pages.map((p, i) => `
+            <button class="page-tab ${i === state.activePage ? 'active' : ''}" data-page="${i}">${p.name}</button>
+          `).join('')}
+          ${state.pages.length < MAX_PAGES ? `<button class="page-tab" id="addPage">+</button>` : ''}
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span class="help-text">Tap to play · Long-press to edit</span>
+        <button class="stop-all" id="stopAll">■ STOP ALL</button>
+        <select class="output-select" id="outputSelect">
+          <option value="">Default Output</option>
+          ${state.devices.map(d => `<option value="${d.deviceId}" ${d.deviceId === state.outputDeviceId ? 'selected' : ''}>${d.label || 'Device ' + d.deviceId.slice(0,8)}</option>`).join('')}
+        </select>
+        <span style="font-size:11px;color:var(--text-dim)">🔊</span>
+        <input type="range" class="vol-slider" id="volSlider" min="0" max="1" step="0.05" value="${state.volume}">
+      </div>
+    </div>
+    <div class="grid-wrap">
+      <div class="grid">
+        ${page.pads.map((pad, i) => {
+          const isPlaying = !!state.playing[i];
+          if (pad) {
+            return `
+              <div class="pad ${isPlaying ? 'playing' : ''}" style="--pad-color: ${pad.color}" data-idx="${i}">
+                <div class="pad-icon">${pad.icon}</div>
+                <div class="pad-label">${pad.label}</div>
+                ${isPlaying ? `<div class="pad-progress" style="width: 100%"></div>` : ''}
+              </div>
+            `;
+          } else {
+            return `
+              <div class="pad empty" data-idx="${i}" data-empty="true">
+                <div class="pad-empty-icon">+</div>
+              </div>
+            `;
+          }
+        }).join('')}
+      </div>
+    </div>
+    ${state.ctxMenu ? renderCtxMenu() : ''}
+    ${state.editModal ? renderEditModal() : ''}
+  `;
+
+  // Event listeners
+  document.querySelectorAll('.pad').forEach(el => {
+    const idx = parseInt(el.dataset.idx);
+    const isEmpty = el.dataset.empty === 'true';
+
+    el.addEventListener('pointerdown', (e) => {
+      if (isEmpty) return;
+      longPressTimer = setTimeout(() => {
+        longPressTimer = 'fired';
+        showCtx(e, idx);
+      }, 500);
+    });
+
+    el.addEventListener('pointerup', () => {
+      if (longPressTimer === 'fired') { longPressTimer = null; return; }
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    });
+
+    el.addEventListener('pointerleave', () => {
+      if (longPressTimer !== 'fired') clearTimeout(longPressTimer);
+      longPressTimer = null;
+    });
+
+    el.addEventListener('click', (e) => {
+      if (longPressTimer === 'fired') return;
+      if (isEmpty) {
+        openFileDialog(idx);
+      } else {
+        playSound(idx);
+      }
+    });
+
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      if (!isEmpty) showCtx(e, idx);
+    });
+  });
+
+  document.querySelectorAll('.page-tab[data-page]').forEach(el => {
+    el.addEventListener('click', () => {
+      state.activePage = parseInt(el.dataset.page);
+      render();
+    });
+  });
+
+  const addPageBtn = document.getElementById('addPage');
+  if (addPageBtn) addPageBtn.addEventListener('click', addPage);
+
+  const stopBtn = document.getElementById('stopAll');
+  if (stopBtn) stopBtn.addEventListener('click', stopAll);
+
+  const volSlider = document.getElementById('volSlider');
+  if (volSlider) {
+    volSlider.addEventListener('input', (e) => {
+      state.volume = parseFloat(e.target.value);
+      Object.values(state.playing).forEach(a => { if (a) a.volume = state.volume; });
+      saveState();
+    });
+  }
+
+  const outputSelect = document.getElementById('outputSelect');
+  if (outputSelect) {
+    outputSelect.addEventListener('change', (e) => {
+      state.outputDeviceId = e.target.value;
+      saveState();
+    });
+  }
+
+  // Context menu dismiss
+  if (state.ctxMenu) {
+    setTimeout(() => {
+      document.addEventListener('click', closeCtx, { once: true });
+    }, 10);
+  }
+}
+
+function renderCtxMenu() {
+  const m = state.ctxMenu;
+  return `
+    <div class="ctx-menu" style="left:${m.x}px;top:${m.y}px" onclick="event.stopPropagation()">
+      <button class="ctx-item" id="ctxEdit">✏️ Edit</button>
+      <button class="ctx-item" id="ctxReplace">📁 Replace Sound</button>
+      <div class="ctx-sep"></div>
+      <button class="ctx-item danger" id="ctxDelete">🗑️ Remove</button>
+    </div>
+  `;
+}
+
+function renderEditModal() {
+  const m = state.editModal;
+  return `
+    <div class="modal-bg" id="modalBg">
+      <div class="modal" onclick="event.stopPropagation()">
+        <h3>Edit Pad</h3>
+        <label>Label</label>
+        <input type="text" id="editLabel" value="${m.label}" maxlength="20" />
+        <label>Icon</label>
+        <div class="icon-picker">
+          ${ICONS.map(ic => `
+            <div class="icon-opt ${m.icon === ic ? 'active' : ''}" data-icon="${ic}">${ic}</div>
+          `).join('')}
+        </div>
+        <label>Color</label>
+        <div class="color-picker">
+          ${COLORS.map(c => `
+            <div class="color-opt ${m.color === c ? 'active' : ''}" data-color="${c}" style="background:${c}"></div>
+          `).join('')}
+        </div>
+        <label>Sound File</label>
+        <div class="file-drop" id="fileDrop">
+          ${m.fileName ? `<div class="filename">✓ ${m.fileName}</div>` : 'Tap to select audio file'}
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="editCancel">Cancel</button>
+          <button class="btn btn-primary" id="editSave">Save</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Delegated event handling for modal & context menu
+document.addEventListener('click', (e) => {
+  // Context menu actions
+  if (e.target.id === 'ctxEdit') { openEditModal(state.ctxMenu.padIndex); return; }
+  if (e.target.id === 'ctxReplace') {
+    const idx = state.ctxMenu.padIndex;
+    state.ctxMenu = null;
+    openFileDialog(idx);
+    return;
+  }
+  if (e.target.id === 'ctxDelete') { deletePad(state.ctxMenu.padIndex); return; }
+
+  // Modal actions
+  if (e.target.id === 'modalBg') { state.editModal = null; render(); return; }
+  if (e.target.id === 'editCancel') { state.editModal = null; render(); return; }
+  if (e.target.id === 'editSave') {
+    const labelInput = document.getElementById('editLabel');
+    if (labelInput) state.editModal.label = labelInput.value;
+    saveEditModal();
+    return;
+  }
+  if (e.target.id === 'fileDrop') {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'audio/*';
+    input.onchange = (ev) => {
+      const file = ev.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        state.editModal.audioData = reader.result;
+        state.editModal.fileName = file.name;
+        render();
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
+    return;
+  }
+
+  // Icon picker
+  if (e.target.dataset.icon && state.editModal) {
+    state.editModal.icon = e.target.dataset.icon;
+    render();
+    return;
+  }
+
+  // Color picker
+  if (e.target.dataset.color && state.editModal) {
+    state.editModal.color = e.target.dataset.color;
+    render();
+    return;
+  }
+});
+
+// Init
+loadDevices().then(() => render());
+</script>
+</body>
+</html>
